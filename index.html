@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>水循环 · 交互式演示</title>
+<style>
+:root{ --bar2:rgba(8,18,28,.82); --gold:#f0b840; --text:#e8eef6; --dim:#9fb6d0; }
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#0e1a2a;color:var(--text)}
+#app{display:flex;flex-direction:column;height:100vh}
+#topbar{display:flex;align-items:center;gap:16px;padding:8px 20px;background:var(--bar2);border-bottom:1px solid rgba(255,255,255,.08);z-index:5}
+#topbar h1{font-size:26px;color:#fff;white-space:nowrap}
+#type-sub{font-size:14px;color:var(--gold);white-space:nowrap}
+.tb-tabs{display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:20px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:var(--dim);font-size:16px;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap}
+.tab:hover{border-color:var(--gold);color:var(--gold)}
+.tab.active{background:rgba(240,184,64,.2);border-color:var(--gold);color:var(--gold);font-weight:700}
+.tb-actions{display:flex;gap:8px}
+.abtn{padding:8px 16px;border-radius:20px;border:1px solid #40c8e0;background:rgba(64,200,224,.12);color:#7fd8f0;font-size:16px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.abtn:hover{background:rgba(64,200,224,.25)}
+.abtn.gold{border-color:var(--gold);background:rgba(240,184,64,.12);color:#f0c860}
+.abtn.running{background:rgba(64,200,224,.3);color:#fff}
+#stage{flex:1;position:relative;min-height:0;background:#0e1a2a}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#tipcard{position:absolute;top:16px;right:16px;width:min(380px,30vw);background:rgba(255,255,255,.95);border-radius:12px;padding:14px 18px;color:#33475b;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:opacity .3s}
+#tipcard h3{font-size:21px;margin-bottom:6px}
+#tipcard p{font-size:15px;line-height:1.55}
+#tipcard .tag{display:inline-block;margin-top:8px;padding:3px 12px;border-radius:12px;background:rgba(240,184,64,.25);color:#8a4a00;font-size:13px;font-weight:700}
+#tipcard.hidden{opacity:0;pointer-events:none}
+#stepbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--bar2);border-top:1px solid rgba(255,255,255,.08);z-index:5}
+#steps{display:flex;gap:10px;flex:1;justify-content:center;overflow-x:auto}
+.sbtn{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--dim);font-size:15px;cursor:pointer;font-family:inherit;transition:all .2s}
+.sbtn b{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);font-size:18px}
+.sbtn:hover{border-color:var(--gold)}
+.sbtn.done b{background:#3f9de0;border-color:#3f9de0;color:#fff}
+.sbtn.active{border-color:var(--gold);color:var(--gold);font-weight:700}
+.sbtn.active b{background:var(--gold);border-color:var(--gold);color:#0e1a2a;box-shadow:0 0 14px rgba(240,184,64,.6)}
+.navbtn{flex:0 0 auto;padding:10px 22px;border-radius:24px;border:none;background:var(--gold);color:#0e1a2a;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit}
+.navbtn.ghost{background:rgba(255,255,255,.08);color:var(--dim);border:1px solid rgba(255,255,255,.3)}
+.navbtn:disabled{opacity:.4;cursor:default}
+#quiz{position:fixed;inset:0;background:rgba(5,10,18,.94);z-index:20;display:flex;align-items:center;justify-content:center}
+#quiz.hidden{display:none}
+#quiz-card{width:min(720px,92vw);background:#f2f6fa;border-radius:16px;padding:28px 32px;color:#1a2a3a;max-height:92vh;overflow-y:auto}
+#quiz-card h2{font-size:22px;color:#1a5d99;margin-bottom:4px}
+#quiz-prog{font-size:14px;color:#7a8a9a;margin-bottom:16px}
+#quiz-q{font-size:20px;font-weight:700;margin-bottom:18px;line-height:1.5}
+.qopt{display:block;width:100%;text-align:left;padding:13px 16px;margin-bottom:10px;border-radius:10px;border:2px solid #d0dae4;background:#fff;font-size:17px;cursor:pointer;font-family:inherit;transition:all .15s}
+.qopt:hover{border-color:#3f9de0}
+.qopt.correct{border-color:#2e9e4f;background:#e6f7ec;color:#1e6b38}
+.qopt.wrong{border-color:#d64545;background:#fdeaea;color:#a32626}
+.qopt:disabled{cursor:default}
+#quiz-why{margin-top:14px;padding:12px 16px;border-radius:10px;background:#eef4fb;font-size:15px;line-height:1.6;display:none}
+#quiz-why.show{display:block}
+#quiz-foot{display:flex;justify-content:space-between;align-items:center;margin-top:20px}
+#quiz-score{font-size:16px;color:#1a5d99;font-weight:700}
+.qbtn{padding:10px 24px;border-radius:22px;border:none;background:#1a5d99;color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
+.qbtn.ghost{background:#e0e8f0;color:#33475b}
+.qbtn.gold{background:var(--gold);color:#0e1a2a;font-weight:700}
+@media (max-width:900px){
+  #topbar h1{font-size:20px} .tab{font-size:14px;padding:6px 12px} .abtn{font-size:14px;padding:6px 12px}
+  #tipcard{width:min(300px,42vw)} #tipcard h3{font-size:17px} #tipcard p{font-size:13px}
+  .sbtn{font-size:13px;padding:4px 8px} .sbtn b{width:30px;height:30px;font-size:15px}
+  .navbtn{padding:8px 14px;font-size:15px}
+}
+
+@media (max-width:560px){
+  #topbar{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  #topbar h1{font-size:17px}
+  #type-sub{display:none}
+  .tb-tabs{order:3;flex-basis:100%;overflow-x:auto;justify-content:flex-start;gap:6px;padding-bottom:2px}
+  .tab{padding:6px 10px;font-size:13px;flex:0 0 auto}
+  .tb-actions{margin-left:auto}
+  .abtn{padding:6px 10px;font-size:13px}
+  #tipcard{width:min(250px,64vw)}
+  .sbtn{font-size:12px;padding:3px 6px}
+  .navbtn{padding:6px 10px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>💧 水循环</h1>
+    <span id="type-sub"></span>
+    <div class="tb-tabs" id="tabs">
+      <button class="tab active" data-type="0">海陆间循环</button>
+      <button class="tab" data-type="1">陆地内循环</button>
+      <button class="tab" data-type="2">海上内循环</button>
+    </div>
+    <div class="tb-actions">
+      <button class="abtn" id="btn-auto">▶ 自动演示</button>
+      <button class="abtn gold" id="btn-quiz">✎ 随堂测验</button>
+      <button class="abtn" id="btn-reset">↺ 重置</button>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="tipcard"><h3 id="tip-title"></h3><div id="tip-lines"></div><span class="tag" id="tip-tag"></span></div>
+  </div>
+  <div id="stepbar">
+    <button class="navbtn ghost" id="btn-prev">‹ 上一步</button>
+    <div id="steps"></div>
+    <button class="navbtn" id="btn-next">下一步 ›</button>
+  </div>
+</div>
+<div id="quiz" class="hidden">
+  <div id="quiz-card">
+    <h2>✎ 水循环随堂测验</h2>
+    <div id="quiz-prog"></div>
+    <div id="quiz-q"></div>
+    <div id="quiz-opts"></div>
+    <div id="quiz-why"></div>
+    <div id="quiz-foot">
+      <span id="quiz-score"></span>
+      <div style="display:flex;gap:10px">
+        <button class="qbtn ghost" id="quiz-exit">退出</button>
+        <button class="qbtn gold" id="quiz-next">下一题 ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+/* ═══ 水循环 · 交互式演示 ═══
+   教材：新人教版必修一 3.1 水循环
+   照片：Pexels #34853068（Nonza 海滩航拍，免费商用许可）
+   设计坐标系：1920×1080（与照片分辨率一致），运行时等比缩放居中 */
+
+/* ═════════════ 数据 ═════════════ */
+const TYPES = [
+  { name: '海陆间循环', sub: '海陆间大循环 · 使陆地水资源不断更新', dim: 'none',
+    steps: ['evap', 'trans', 'precip', 'runoff', 'infil', 'under'],
+    terminal: { title: '🔄 完整循环', lines: ['六环节循环往复，陆地上的淡水资源得以不断更新。'], tag: '水循环使陆地水资源可再生' } },
+  { name: '陆地内循环', sub: '陆地内小循环 · 补给内流区，如塔里木河', dim: 'ocean',
+    steps: ['evap-land', 'precip'],
+    terminal: { title: '🔄 陆地内循环', lines: ['陆地的水汽凝结成雨，补给内流区的水分。'], tag: '内陆地区的重要水源' } },
+  { name: '海上内循环', sub: '海上内小循环 · 参与水量最大', dim: 'land',
+    steps: ['evap', 'precip-sea'],
+    terminal: { title: '🔄 海上内循环', lines: ['海洋蒸发的水汽在海洋上空凝结降水，参与水量最大。'], tag: '地球水循环的主体' } },
+];
+const STEPS = {
+  'evap':      { name: '蒸发',      color: '#0a6ebd', title: '蒸发',
+    lines: ['海洋水受太阳辐射影响，蒸发变成水汽进入大气。'],
+    tag: '太阳辐射是水循环的主要动力' },
+  'trans':     { name: '水汽输送',  color: '#e8830c', title: '水汽输送',
+    lines: ['海洋上空的水汽随气流输送到陆地上空。'],
+    tag: '随大气运动远行' },
+  'precip':    { name: '降水',      color: '#0a6ebd', title: '降水',
+    lines: ['水汽凝结，形成降水，降落地面。'],
+    tag: '凝云致雨' },
+  'runoff':    { name: '地表径流',  color: '#0a7fa8', title: '地表径流',
+    lines: ['降水沿地表流动，汇入江河，最终回归海洋。'],
+    tag: '河流是水循环的大动脉' },
+  'infil':     { name: '下渗',      color: '#8a6a48', title: '下渗',
+    lines: ['部分降水渗入地下，补给地下水。'],
+    tag: '地下水的重要补给来源' },
+  'under':     { name: '地下径流',  color: '#2e7fb8', title: '地下径流',
+    lines: ['地下水沿含水层缓慢流动，回归海洋，循环闭合。'],
+    tag: '循环得以闭合' },
+  'evap-land': { name: '蒸发/蒸腾', color: '#58a05a', title: '蒸发与蒸腾',
+    lines: ['陆地水面蒸发与植物蒸腾，使水汽进入陆地上空。'],
+    tag: '植被的贡献' },
+  'precip-sea':{ name: '海洋降水',  color: '#0a6ebd', title: '海洋降水',
+    lines: ['海洋上空水汽凝结，降水直接落回海洋。'],
+    tag: '参与水量最大' },
+};
+const ARROWS = [
+  { id: 'evap',   types: [0, 2], pts: [[384, 676], [360, 556], [446, 430]], color: '#0a6ebd', dash: false, label: { t: '蒸发', x: 350, y: 566 } },
+  { id: 'trans',  types: [0],    pts: [[516, 396], [760, 352], [1140, 324]], color: '#e8830c', dash: false, label: { t: '水汽输送', x: 888, y: 318 } },
+  { id: 'precip', types: [0, 1], pts: [[1262, 362], [1270, 516], [1298, 672]], color: '#0a6ebd', dash: false, label: { t: '降水', x: 1380, y: 520 } },
+  { id: 'runoff', types: [0],    pts: [[1524, 700], [1040, 732], [564, 730]], color: '#0a7fa8', dash: false, label: { t: '地表径流', x: 960, y: 692 } },
+  { id: 'infil',  types: [0],    pts: [[1229, 690], [1229, 768]], color: '#8a6a48', dash: true, label: { t: '下渗', x: 1306, y: 730 } },
+  { id: 'under',  types: [0],    pts: [[1212, 800], [900, 812], [600, 782]], color: '#2e7fb8', dash: true, label: { t: '地下径流', x: 900, y: 822 } },
+  { id: 'evap-land',  types: [1], pts: [[1400, 676], [1410, 556], [1260, 470]], color: '#58a05a', dash: false, label: { t: '蒸发/蒸腾', x: 1340, y: 590 } },
+  { id: 'precip-sea', types: [2], pts: [[500, 362], [500, 516], [500, 668]], color: '#0a6ebd', dash: false, label: { t: '降水', x: 560, y: 520 } },
+];
+const CLOUDS = [
+  { id: 'land', types: [0, 1], cx: 1450, cy: 235 },
+  { id: 'sea',  types: [2],    cx: 500,  cy: 235 },
+];
+
+/* ═════════════ 随堂测验数据（新人教版 3.1） ═════════════ */
+const QUIZ = [
+  { q: '驱动水循环的主要能量来源是（　）',
+    opts: ['风能和潮汐能', '太阳辐射和地球重力', '地热能和生物能', '海洋温差能'],
+    a: 1, why: '太阳辐射使水蒸发进入大气，重力使水汽凝结降落并驱动径流。' },
+  { q: '海陆间循环的环节按顺序排列，正确的是（　）',
+    opts: ['蒸发→降水→水汽输送→径流', '蒸发→水汽输送→降水→径流', '降水→蒸发→径流→水汽输送', '水汽输送→蒸发→降水→径流'],
+    a: 1, why: '海洋蒸发→水汽输送→陆地降水→地表径流与地下径流回归海洋。' },
+  { q: '下列环节中，属于海陆间循环独有的是（　）',
+    opts: ['蒸发', '降水', '水汽输送', '下渗'],
+    a: 2, why: '水汽输送把海洋水汽带到陆地，是海陆间循环区别于另外两种循环的关键环节。' },
+  { q: '南水北调工程主要改变的水循环环节是（　）',
+    opts: ['水汽输送', '降水', '地表径流', '蒸发'],
+    a: 2, why: '跨流域调水直接改变地表径流的时空分布。' },
+  { q: '参与水量最大的水循环类型是（　）',
+    opts: ['海陆间循环', '陆地内循环', '海上内循环', '三种一样大'],
+    a: 2, why: '海洋面积广阔、蒸发量大，海上内循环参与的水量最大。' },
+  { q: '我国塔里木河的河水主要参与的水循环是（　）',
+    opts: ['海陆间循环', '陆地内循环', '海上内循环', '不参与水循环'],
+    a: 1, why: '塔里木河是内流河，河水最终消耗于内陆，主要参与陆地内循环。' },
+  { q: '城市建设透水路面、打造"海绵城市"，主要影响的水循环环节是（　）',
+    opts: ['增加下渗，减少地表径流', '增加水汽输送', '减少降水', '加快蒸发'],
+    a: 0, why: '透水地面使雨水更多下渗、地表径流减少，可缓解城市内涝。' },
+  { q: '海陆间循环最重要的地理意义是（　）',
+    opts: ['使海洋水量不断增加', '使陆地水资源不断更新', '减少大气中的水汽', '改变太阳辐射强度'],
+    a: 1, why: '通过海陆间循环，陆地上的淡水资源得以不断补充和更新。' },
+];
+
+/* ═════════════ 粒子系统 ═════════════ */
+const P = {
+  list: [],
+  rain: [],
+  spawn() {                                  // 沿当前环节箭头路径生成
+    const ids = activeArrowIds();
+    const arrows = ARROWS.filter(a => a.types.includes(WC.type) && ids.includes(a.id));
+    if (!arrows.length) return;
+    const a = arrows[Math.floor(Math.random() * arrows.length)];
+    const hue = { '#0a6ebd': 205, '#e8830c': 28, '#0a7fa8': 190, '#8a6a48': 30, '#2e7fb8': 200, '#58a05a': 110 }[a.color] || 200;
+    this.list.push({
+      pts: a.pts, seg: 0, t: Math.random(),
+      sp: .12 + Math.random() * .22, sz: 2.5 + Math.random() * 3,
+      al: .45 + Math.random() * .4, hue,
+    });
+  },
+  spawnRain() {                              // 云下生成雨滴
+    const c = CLOUDS.find(c => c.types.includes(WC.type));
+    if (!c) return;
+    this.rain.push({ x: c.cx + (Math.random() - .5) * 340, y: c.cy + 145, sp: 380 + Math.random() * 260 });
+  },
+  update(dt) {
+    // 目标粒子数：当前环节 60，终态每环节 40
+    const target = WC.isFull ? 40 * WC.steps.length : 60;
+    if (this.list.length < target && Math.random() < .5) this.spawn();
+    while (this.list.length > target + 20) this.list.shift();
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const p = this.list[i];
+      if (!p.pts || p.seg >= p.pts.length - 1) { this.list.splice(i, 1); continue; }
+      p.t += p.sp * dt;
+      if (p.t >= 1) {
+        p.t = 0; p.seg++;
+        if (p.seg >= p.pts.length - 1) { this.list.splice(i, 1); continue; }
+      }
+    }
+    // 雨滴
+    const rainOn = WC.isFull || ['precip', 'precip-sea'].includes(WC.activeId);
+    if (rainOn && this.rain.length < 120 && Math.random() < .6) this.spawnRain();
+    for (let i = this.rain.length - 1; i >= 0; i--) {
+      const r = this.rain[i];
+      r.y += r.sp * dt;
+      if (r.y > SY - 4) this.rain.splice(i, 1);
+    }
+  },
+  draw() {
+    this.list.forEach(p => {
+      const a = p.pts[p.seg], b = p.pts[p.seg + 1];
+      const x = a[0] + (b[0] - a[0]) * p.t, y = a[1] + (b[1] - a[1]) * p.t;
+      const g = ctx.createRadialGradient(x, y, 1, x, y, p.sz * 3);
+      g.addColorStop(0, `hsla(${p.hue},75%,72%,${p.al})`);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, p.sz * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `hsla(${p.hue},65%,80%,${p.al})`;
+      ctx.beginPath(); ctx.arc(x, y, p.sz, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.strokeStyle = 'rgba(155,210,245,.5)'; ctx.lineWidth = 2;
+    this.rain.forEach(r => {
+      ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - 2, r.y + 14); ctx.stroke();
+    });
+  },
+};
+
+/* ═════════════ 状态 ═════════════ */
+const WC = {
+  type: 0, pos: 1, auto: false, autoTimer: null, autoMs: 4000, quizOpen: false,
+  get steps() { return TYPES[this.type].steps; },
+  get activeId() { return this.pos <= this.steps.length ? this.steps[this.pos - 1] : null; },
+  get isFull() { return this.pos > this.steps.length; },
+  debug: {
+    photoReady: false,
+    particleCount: () => P.list.length,
+    rainCount: () => P.rain.length,
+    state: () => ({ type: WC.type, pos: WC.pos, auto: WC.auto }),
+  },
+};
+window.WC = WC;   // 顶层 const 不会创建 window 属性，必须显式暴露（测试依赖）
+
+/* ═════════════ 状态机与 UI 同步 ═════════════ */
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function next() { WC.pos = clamp(WC.pos + 1, 1, WC.steps.length + 1); syncUI(); }
+function prev() { WC.pos = clamp(WC.pos - 1, 1, WC.steps.length + 1); syncUI(); }
+function goto(n) { if (!Number.isFinite(n)) return; WC.pos = clamp(Math.trunc(n), 1, WC.steps.length + 1); syncUI(); }
+function cycleType() { WC.type = (WC.type + 1) % TYPES.length; WC.pos = 1; syncUI(); }
+function resetAll() {
+  if (WC.auto) toggleAuto();
+  WC.type = 0; WC.pos = 1; syncUI();
+}
+/* 计划与 spec 约定以 WC.next/prev/goto 调用状态机（Task 5-9 测试同样依赖），挂载为 WC 方法 */
+WC.next = next; WC.prev = prev; WC.goto = goto;
+WC.cycleType = cycleType; WC.resetAll = resetAll;
+WC.toggleAuto = toggleAuto; WC.openQuiz = openQuiz; WC.closeQuiz = closeQuiz;
+
+function buildSteps() {
+  const box = document.getElementById('steps');
+  box.innerHTML = '';
+  TYPES[WC.type].steps.forEach((id, i) => {
+    const b = document.createElement('button');
+    b.className = 'sbtn'; b.dataset.n = i + 1;
+    b.innerHTML = '<b>' + (i + 1) + '</b>' + STEPS[id].name;
+    b.addEventListener('click', () => goto(i + 1));
+    box.appendChild(b);
+  });
+}
+
+function syncUI() {
+  P.list.length = 0; P.rain.length = 0;   // 状态切换即重置动画，避免旧粒子沿已隐藏箭头残留
+  buildSteps();
+  document.querySelectorAll('#tabs .tab').forEach((t, i) =>
+    t.className = 'tab' + (i === WC.type ? ' active' : ''));
+  document.getElementById('type-sub').textContent = TYPES[WC.type].sub;
+  document.querySelectorAll('#steps .sbtn').forEach((b, i) => {
+    const n = i + 1;
+    b.className = 'sbtn' + (n === WC.pos ? ' active' : (n < WC.pos ? ' done' : ''));
+  });
+  document.getElementById('btn-prev').disabled = WC.pos <= 1;
+  document.getElementById('btn-next').disabled = WC.isFull;
+  document.getElementById('btn-next').textContent = WC.isFull ? '循环中 ⟳' : '下一步 ›';
+  updateTip();
+}
+function updateTip() {
+  const s = WC.isFull ? TYPES[WC.type].terminal : STEPS[WC.activeId];
+  document.getElementById('tip-title').textContent = s.title;
+  document.getElementById('tip-title').style.color = WC.isFull ? '#1a5d99' : STEPS[WC.activeId].color;
+  document.getElementById('tip-lines').innerHTML =
+    s.lines.map(l => '<p>' + l + '</p>').join('');
+  document.getElementById('tip-tag').textContent = s.tag;
+}
+
+/* ═════════════ 键盘 ═════════════ */
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // 避免 Ctrl+3 切换浏览器标签页时误推进环节
+  if (WC.quizOpen) { if (e.key === 'Escape') closeQuiz(); return; }
+  switch (e.key) {
+    case ' ': e.preventDefault(); if (WC.auto) toggleAuto(); else next(); break;
+    case 'ArrowRight': next(); break;
+    case 'ArrowLeft': prev(); break;
+    case 'q': case 'Q': cycleType(); break;
+    case 't': case 'T': openQuiz(); break;
+    case 'Escape': resetAll(); break;
+    default:
+      if (/^[1-9]$/.test(e.key)) goto(parseInt(e.key, 10));
+  }
+});
+
+const W = 1920, H = 1080, SY = 680;   // SY = 地表线（照片地表 + 剖面顶面）
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const stage = document.getElementById('stage');
+let cw = 0, ch = 0, sx = 1, ox = 0, oy = 0;   // sx=缩放，ox/oy=居中偏移
+let dpr = 1;
+
+const photo = new Image();
+photo.src = 'img/water-cycle-photo.jpg';
+photo.onload = () => { WC.debug.photoReady = true; };
+photo.onerror = () => console.error('照片加载失败: img/water-cycle-photo.jpg');
+
+function resize() {
+  const r = stage.getBoundingClientRect();
+  cw = Math.max(r.width || 800, 300); ch = Math.max(r.height || 400, 200);
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = cw * dpr; cv.height = ch * dpr;
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sx = Math.min(cw / W, ch / H); ox = (cw - W * sx) / 2; oy = (ch - H * sx) / 2;
+}
+
+/* ───────── 地下剖面（绘制于照片底部，与地表线衔接） ───────── */
+function drawUnderground() {
+  ctx.fillStyle = '#4c7a30'; ctx.fillRect(0, SY - 8, W, 8);                 // 草皮线
+  ctx.fillStyle = '#8a6a48'; ctx.fillRect(0, SY, W, 44);                    // 表土层
+  ctx.fillStyle = '#74573a'; ctx.fillRect(0, SY + 44, W, 54);               // 砂土层
+  ctx.fillStyle = '#5d5146'; ctx.fillRect(0, SY + 98, W, H - SY - 98);      // 基岩
+  ctx.strokeStyle = '#4a4038'; ctx.lineWidth = 3; ctx.beginPath();          // 岩层层理
+  ctx.moveTo(0, SY + 150); ctx.quadraticCurveTo(W / 2, SY + 158, W, SY + 148); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, SY + 210); ctx.quadraticCurveTo(W / 2, SY + 218, W, SY + 208); ctx.stroke();
+  // 含水层（透镜）与潜水面
+  ctx.fillStyle = 'rgba(63,158,216,.5)';
+  ctx.beginPath(); ctx.ellipse(W * .47, SY + 122, W * .2, 30, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.setLineDash([14, 10]);
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(W * .32, SY + 62); ctx.quadraticCurveTo(W * .47, SY + 46, W * .79, SY + 76); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ───────── 当前环节箭头列表（供粒子与调试使用） ───────── */
+function currentArrows() {
+  const t = WC.type, ids = WC.steps;
+  const shown = WC.isFull ? ids : ids.slice(0, WC.pos);       // 已讲过的环节
+  return ARROWS.filter(a => a.types.includes(t) && shown.includes(a.id)).map(a => a.id);
+}
+function activeArrowIds() {                                  // 只有当前环节（或终态全部）有粒子
+  if (WC.isFull) return WC.steps;
+  return [WC.activeId];
+}
+WC.debug.activeArrows = currentArrows;
+WC.debug.pixelAt = (dx, dy) => {
+  const dpr = cv.width / cw;
+  const x = Math.round((ox + dx * sx) * dpr), y = Math.round((oy + dy * sx) * dpr);
+  return Array.from(ctx.getImageData(x, y, 1, 1).data);
+};
+/* 粒子采样钩子：注册须晚于 const WC 初始化（置于 P 旁会触发 TDZ ReferenceError） */
+WC.debug.particleSample = () => {
+  const p = P.list[0];
+  if (!p || !p.pts || p.seg >= p.pts.length - 1) return 'none';
+  const a = p.pts[p.seg], b = p.pts[p.seg + 1];
+  return Math.round(a[0] + (b[0] - a[0]) * p.t) + ',' + Math.round(a[1] + (b[1] - a[1]) * p.t);
+};
+
+/* ───────── 箭头绘制（白色光晕 + 彩色主线 + 箭头头部 + 标注） ───────── */
+function drawArrow(a, alpha) {
+  const pts = a.pts, color = a.color, w = a.dash ? 6 : 7;
+  const halo = alpha === 1 ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.35)';
+  ctx.globalAlpha = alpha;
+  ctx.lineCap = 'round';
+  ctx.setLineDash(a.dash ? [18, 14] : []);
+  const strokePath = () => {          // 平滑穿过所有路径点，末端直达箭头头部
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    if (pts.length === 2) ctx.lineTo(pts[1][0], pts[1][1]);
+    else {
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      const L = pts[pts.length - 1];
+      ctx.quadraticCurveTo(L[0], L[1], L[0], L[1]);
+    }
+  };
+  strokePath(); ctx.strokeStyle = halo; ctx.lineWidth = 13; ctx.stroke();
+  strokePath(); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+  ctx.setLineDash([]);
+  // 箭头头部（白描边 + 放大）
+  const l = pts[pts.length - 1], p = pts[pts.length - 2];
+  const ang = Math.atan2(l[1] - p[1], l[0] - p[0]), hs = w * 4.5;
+  ctx.beginPath(); ctx.moveTo(l[0], l[1]);
+  ctx.lineTo(l[0] - hs * Math.cos(ang - .45), l[1] - hs * Math.sin(ang - .45));
+  ctx.lineTo(l[0] - hs * Math.cos(ang + .45), l[1] - hs * Math.sin(ang + .45));
+  ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = halo; ctx.lineWidth = 8; ctx.stroke();
+  ctx.fillStyle = color; ctx.fill();
+  // 标注文字（白描边保证照片上可读）
+  if (a.label) {
+    ctx.font = 'bold 40px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineJoin = 'round'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 7;
+    ctx.strokeText(a.label.t, a.label.x, a.label.y);
+    ctx.fillStyle = color;   // 完成态保留环节颜色（仅整体透明度降低）
+    ctx.fillText(a.label.t, a.label.x, a.label.y);
+  }
+  ctx.globalAlpha = 1; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+}
+
+/* ───────── 真实云朵（离屏多层渐变雪碧 + 柔化 + 缓慢漂移） ───────── */
+const cloudSprites = {};
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function buildCloudSprite(id) {
+  const w = 520, h = 300, c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d'), rnd = mulberry32(id === 'land' ? 7 : 19);
+  const puffs = [];
+  for (let i = 0; i < 18; i++) {
+    const r = (id === 'land' ? 88 : 76) * (.55 + .6 * rnd());
+    const x = (r + 30) + rnd() * (w - 2 * r - 60);     // 留 30px 模糊余量（实测 blur(9px) 在 14px 余量时渗漏 ~1/255，30px 确保边缘 alpha 严格为 0）
+    const y = (r + 30) + rnd() * (h - 2 * r - 60);
+    puffs.push([x, y, r]);
+  }
+  puffs.forEach(p => {                                  // 硬边云团打底
+    const [x, y, r] = p;
+    const gr = g.createRadialGradient(x, y, r * .15, x, y, r);
+    gr.addColorStop(0, 'rgba(255,255,255,.98)');
+    gr.addColorStop(.75, 'rgba(247,250,255,.9)');
+    gr.addColorStop(1, 'rgba(240,245,252,0)');
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  });
+  g.globalCompositeOperation = 'source-atop';          // 灰调只染已有云体，不在空处留雾
+  for (let i = 0; i < 5; i++) {
+    const r = 38 + rnd() * 46;
+    const x = (r + 14) + rnd() * (w - 2 * r - 28);
+    const y = (r + 14) + rnd() * (h * .5 - r - 14) + h * .3;   // 偏向下半部
+    const gr = g.createRadialGradient(x, y, r * .2, x, y, r);
+    gr.addColorStop(0, 'rgba(196,210,226,.5)');
+    gr.addColorStop(1, 'rgba(196,210,226,0)');
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
+  if (typeof g.filter === 'string') {                   // 整体柔化（Chromium 支持）
+    try {
+      g.filter = 'blur(9px)';
+      g.globalAlpha = .9;
+      g.drawImage(c, 0, 0);
+    } catch (e) { /* 个别环境 filter 声明存在但自绘失败：忽略柔化 */ }
+    g.filter = 'none'; g.globalAlpha = 1;
+  } else {                                              // 回退：叠一层低透明度
+    g.globalAlpha = .35; g.drawImage(c, 0, 0); g.globalAlpha = 1;
+  }
+  return c;
+}
+function drawCloud(c) {
+  if (!cloudSprites[c.id]) cloudSprites[c.id] = buildCloudSprite(c.id);
+  const drift = Math.sin(tm * .3 + (c.id === 'land' ? 0 : 1.4)) * 10;
+  const s = 1.15;
+  const w = 520 * s, h = 300 * s;
+  ctx.globalAlpha = .92;
+  ctx.drawImage(cloudSprites[c.id], c.cx + drift - w / 2, c.cy - h / 2, w, h);
+  ctx.globalAlpha = 1;
+}
+/* 云仅在其降水环节已讲过后显示（设计文档 §6：未讲环节=隐藏） */
+function cloudVisible(c) {
+  if (!c.types.includes(WC.type)) return false;
+  const precipId = c.id === 'sea' ? 'precip-sea' : 'precip';
+  const shown = WC.isFull ? WC.steps : WC.steps.slice(0, WC.pos);
+  return shown.includes(precipId);
+}
+cloudSprites.land = buildCloudSprite('land');   // 加载时预构建，避免云首现帧的 ~4ms 卡顿
+cloudSprites.sea = buildCloudSprite('sea');
+
+/* ───────── 海浪（多层水面波动 + 海水拍岸 + 波光） ───────── */
+const WATERLINE = [[440, 90], [460, 225], [480, 310], [500, 395], [520, 440], [540, 590],
+                   [560, 645], [580, 645], [600, 640], [620, 625], [640, 625], [660, 610],
+                   [680, 592], [700, 582]];   // 照片真实水线实测点（设计坐标，分段线性拟合）
+function coastX(y) {
+  if (y <= WATERLINE[0][0]) return WATERLINE[0][1];
+  for (let i = 1; i < WATERLINE.length; i++) {
+    const [y1, x1] = WATERLINE[i - 1], [y2, x2] = WATERLINE[i];
+    if (y <= y2) return x1 + (x2 - x1) * (y - y1) / (y2 - y1);
+  }
+  return WATERLINE[WATERLINE.length - 1][1];
+}
+
+function drawWaves() {
+  // 1) 多层水面波动：波纹带限制在海区（x < 岸线），随深度错开
+  for (let w = 0; w < 3; w++) {
+    const yy = 470 + w * 58;
+    ctx.strokeStyle = 'rgba(255,255,255,' + (.30 - w * .08) + ')';
+    ctx.lineWidth = 3 - w * .7;
+    ctx.beginPath();
+    let started = false;
+    for (let x = 8; x < 640; x += 5) {
+      if (x > coastX(yy) - 16) break;
+      const y = yy + Math.sin(x * .05 + tm * (1.8 - w * .5)) * 4.5
+                  + Math.cos(x * .09 - tm * (1.2 - w * .4)) * 2.5;
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // 2) 海水拍岸：水边条带沿对角岸线周期性涌上岸再退下（沿岸相位错开）
+  const band = (y, side) => {   // side=1 前沿（朝陆），side=-1 后沿（朝海）
+    const ph = (tm * .55 + y * .008 + .3 * Math.sin(y * .02)) % 1;
+    const swell = ph < .45 ? ph / .45 : (1 - ph) / .55;
+    const wob = Math.sin(y * .09 + tm * .8) * 6;
+    return coastX(y) + (side === 1 ? -6 + swell * 20 + wob : -30 - swell * 4 + wob);
+  };
+  ctx.fillStyle = 'rgba(225,242,255,.4)';
+  ctx.beginPath();
+  for (let y = 440; y <= 680; y += 4) { const x = band(y, 1); y === 440 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  for (let y = 680; y >= 440; y -= 4) ctx.lineTo(band(y, -1), y);
+  ctx.closePath(); ctx.fill();
+  // 拍岸浪花白线（浪最高时最亮）
+  ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (let y = 442; y <= 678; y += 3) {
+    const ph = (tm * .55 + y * .008 + .3 * Math.sin(y * .02)) % 1;
+    const swell = ph < .45 ? ph / .45 : (1 - ph) / .55;
+    ctx.strokeStyle = 'rgba(255,255,255,' + (.15 + .55 * swell).toFixed(3) + ')';
+    ctx.beginPath(); ctx.moveTo(band(y, 1), y); ctx.lineTo(band(y, 1) + 3, y); ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  // 3) 波光点（限制在海区内）
+  for (let i = 0; i < 30; i++) {
+    const sd = (i * 37 + 11) % 100 / 100;
+    const y = 445 + ((i * 53) % 200);
+    const x = 20 + sd * (coastX(y) - 40);
+    const tw = .18 + .5 * (0.5 + 0.5 * Math.sin(tm * 1.4 + i * 1.7));
+    ctx.fillStyle = 'rgba(255,250,220,' + tw.toFixed(3) + ')';
+    ctx.fillRect(x, y, 3, 1.4);
+  }
+}
+
+/* ───────── 场景标注（海洋/陆地大标签） ───────── */
+function drawRegionLabels() {
+  ctx.font = 'bold 50px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineJoin = 'round'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 9;
+  ctx.strokeText('海  洋', 300, 950);
+  ctx.fillStyle = '#08365e'; ctx.fillText('海  洋', 300, 950);
+  ctx.strokeText('陆  地', 1620, 950);
+  ctx.fillStyle = '#2f5c1e'; ctx.fillText('陆  地', 1620, 950);
+}
+
+/* ───────── 区域压暗（非当前循环类型所涉区域，渐变羽化） ───────── */
+function drawDim() {
+  const d = TYPES[WC.type].dim;
+  if (d === 'none') return;
+  if (d === 'ocean') {
+    const g = ctx.createLinearGradient(460, 0, 660, 0);
+    g.addColorStop(0, 'rgba(10,18,30,.55)');
+    g.addColorStop(1, 'rgba(10,18,30,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 660, H);
+  } else {
+    const g = ctx.createLinearGradient(460, 0, 660, 0);
+    g.addColorStop(0, 'rgba(10,18,30,0)');
+    g.addColorStop(1, 'rgba(10,18,30,.55)');
+    ctx.fillStyle = g; ctx.fillRect(460, 0, W - 460, H);
+  }
+}
+
+/* ───────── 照片铺底 ───────── */
+function drawPhoto() {
+  if (WC.debug.photoReady) ctx.drawImage(photo, 0, 0, W, H);
+  else {  // 未加载完时的占位渐变（避免黑屏）
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#7fb2ea'); g.addColorStop(.6, '#cfe6f7'); g.addColorStop(.63, '#8a6a48'); g.addColorStop(1, '#5d5146');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* ───────── 主循环 ───────── */
+let lastTs = 0;
+let tm = 0;
+function loop(ts) {
+  const dt = lastTs ? Math.min((ts - lastTs) / 1000, .1) : .016; lastTs = ts; tm += dt;
+  ctx.setTransform(cv.width / cw, 0, 0, cv.height / ch, 0, 0);   // 清除 dpr 变换
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.setTransform(sx * dpr, 0, 0, sx * dpr, ox * dpr, oy * dpr);                        // 进入设计坐标
+  drawPhoto();
+  drawWaves();           // 海浪画在压暗之前：类型1压暗海面时波浪一并变暗
+  drawDim();
+  drawUnderground();
+  // 云：仅当前类型涉及的云、且其降水环节已讲过后可见
+  CLOUDS.forEach(c => { if (cloudVisible(c)) drawCloud(c); });
+  // 箭头：已讲环节淡色保留，当前环节高亮
+  const shown = currentArrows(), active = activeArrowIds();
+  ARROWS.forEach(a => {
+    if (!shown.includes(a.id)) return;
+    drawArrow(a, active.includes(a.id) || WC.isFull ? 1 : .45);
+  });
+  drawRegionLabels();
+  P.update(dt);
+  P.draw();
+  requestAnimationFrame(loop);
+}
+
+/* ═════════════ UI 绑定 ═════════════ */
+document.getElementById('btn-prev').addEventListener('click', prev);
+document.getElementById('btn-next').addEventListener('click', next);
+document.getElementById('btn-reset').addEventListener('click', resetAll);
+document.getElementById('btn-auto').addEventListener('click', toggleAuto);
+document.getElementById('btn-quiz').addEventListener('click', openQuiz);
+document.getElementById('quiz-next').addEventListener('click', nextQuiz);
+document.getElementById('quiz-exit').addEventListener('click', closeQuiz);
+document.querySelectorAll('#tabs .tab').forEach(t =>
+  t.addEventListener('click', () => { WC.type = parseInt(t.dataset.type, 10); WC.pos = 1; syncUI(); }));
+
+function toggleAuto() {
+  WC.auto = !WC.auto;
+  const b = document.getElementById('btn-auto');
+  if (WC.auto) {
+    b.textContent = '⏸ 暂停'; b.classList.add('running');
+    WC.autoTimer = setInterval(() => {
+      if (WC.isFull) goto(1); else next();
+    }, WC.autoMs);
+  } else {
+    b.textContent = '▶ 自动演示'; b.classList.remove('running');
+    clearInterval(WC.autoTimer); WC.autoTimer = null;
+  }
+}
+/* ═════════════ 随堂测验逻辑 ═════════════ */
+const quiz = { i: 0, score: 0, answered: false };
+const $ = id => document.getElementById(id);
+
+function openQuiz() {
+  if (WC.auto) toggleAuto();
+  WC.quizOpen = true;
+  quiz.i = 0; quiz.score = 0;
+  $('quiz').classList.remove('hidden');
+  renderQuiz();
+}
+function closeQuiz() {
+  WC.quizOpen = false;
+  $('quiz').classList.add('hidden');
+}
+function renderQuiz() {
+  const item = QUIZ[quiz.i];
+  quiz.answered = false;
+  $('quiz-prog').textContent = '第 ' + (quiz.i + 1) + '/' + QUIZ.length + ' 题';
+  $('quiz-q').textContent = (quiz.i + 1) + '. ' + item.q;
+  $('quiz-opts').innerHTML = item.opts.map((o, k) =>
+    '<button class="qopt" data-k="' + k + '">' + String.fromCharCode(65 + k) + '. ' + o + '</button>'
+  ).join('');
+  $('quiz-why').className = '';
+  $('quiz-why').textContent = '';
+  $('quiz-score').textContent = '得分：' + quiz.score;
+  const nb = $('quiz-next');
+  nb.textContent = quiz.i === QUIZ.length - 1 ? '查看结果' : '下一题 ›';
+  nb.style.display = 'none';
+  $('quiz-opts').querySelectorAll('.qopt').forEach(b =>
+    b.addEventListener('click', () => answerQuiz(parseInt(b.dataset.k, 10))));
+  $('quiz-exit').style.display = 'inline-block';
+  $('quiz-restart') && $('quiz-restart').remove();
+}
+function answerQuiz(k) {
+  if (quiz.answered) return;
+  quiz.answered = true;
+  const item = QUIZ[quiz.i];
+  const opts = $('quiz-opts').querySelectorAll('.qopt');
+  opts.forEach(b => b.disabled = true);
+  if (k === item.a) { quiz.score++; opts[k].classList.add('correct'); }
+  else { opts[k].classList.add('wrong'); opts[item.a].classList.add('correct'); }
+  $('quiz-score').textContent = '得分：' + quiz.score;
+  $('quiz-why').textContent = '解析：' + item.why;
+  $('quiz-why').classList.add('show');
+  $('quiz-next').style.display = 'inline-block';
+}
+function nextQuiz() {
+  quiz.i++;
+  if (quiz.i >= QUIZ.length) return showQuizResult();
+  renderQuiz();
+}
+function showQuizResult() {
+  $('quiz-prog').textContent = '';
+  $('quiz-q').textContent = '测验完成！';
+  $('quiz-opts').innerHTML = '<p style="font-size:19px;line-height:1.6">' +
+    '共 ' + QUIZ.length + ' 题，答对 ' + quiz.score + ' 题' +
+    (quiz.score >= 6 ? '，掌握得很好！🎉' : '，再回顾一下循环过程吧。💪') + '</p>';
+  $('quiz-why').className = '';
+  $('quiz-score').textContent = '得分：' + quiz.score + ' / ' + QUIZ.length;
+  $('quiz-next').style.display = 'none';
+  $('quiz-exit').style.display = 'none';
+  const rb = document.createElement('button');
+  rb.className = 'qbtn gold'; rb.id = 'quiz-restart'; rb.textContent = '↺ 重新测验';
+  rb.addEventListener('click', () => { quiz.i = 0; quiz.score = 0; renderQuiz(); });
+  $('quiz-foot').querySelector('div').appendChild(rb);
+}
+
+syncUI();
+
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
